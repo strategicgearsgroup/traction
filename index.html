@@ -474,21 +474,23 @@ function renderInitiative(){
         <div class="mb"><div class="ml">Deadline</div><div class="mv ${od?'over':''}">${fmtShort(i.deadline)}${od?' · overdue':''}</div></div>
       </div>
       <div class="closebtns">
+        <button class="btn btn-ghost btn-sm" data-editinit>✎ Edit</button>
         <button class="btn btn-ghost btn-sm" data-mark="Done">${i.manual==='Done'?'✓ Marked Done':'Mark Done'}</button>
         <button class="btn btn-ghost btn-sm" data-mark="Cancelled">${i.manual==='Cancelled'?'✓ Cancelled':'Cancel initiative'}</button>
         ${i.manual?'<button class="btn btn-ghost btn-sm" data-mark="reopen">Reopen</button>':''}
+        <button class="btn btn-ghost btn-sm" style="color:var(--dl)" data-delinit>✕ Delete</button>
       </div></div>
     <div class="sectop"><h2><span class="chev">»</span> Tasks</h2></div>
     <table class="tasks"><thead><tr><th style="width:30px"></th><th>Task</th><th style="width:120px">Targeted date</th><th style="width:150px">Responsible</th><th style="width:120px">Status</th></tr></thead>
       <tbody>${i.tasks.map(t=>{const ts=taskStatus(t);const over=daysFrom(t.target)<0&&t.status!=='Done';
           return `<tr class="${t.status==='Done'?'done':''}"><td><div class="tcheck" data-toggle="${t.id}">${t.status==='Done'?'<svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6 l3 3 L10 2" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div></td>
             <td><div class="ttl">${t.title}</div>${t.details?`<div class="tdt">${t.details}</div>`:''}</td>
-            <td style="${over?'color:var(--dl);font-weight:700':''}">${fmtShort(t.target)}</td><td>${t.who}</td><td><span class="badge ${STAT_CLASS[ts]}">${ts}</span></td></tr>`;}).join('')}
+            <td style="${over?'color:var(--dl);font-weight:700':''}">${fmtShort(t.target)}</td><td>${t.who}</td><td><span class="badge ${STAT_CLASS[ts]}">${ts}</span> <span data-edittask="${t.id}" style="cursor:pointer;font-size:11px;color:var(--gray)">✎</span> <span data-deltask="${t.id}" style="cursor:pointer;font-size:11px;color:var(--dl)">✕</span></td></tr>`;}).join('')}
         <tr class="addrow"><td></td><td><input class="inp" id="ntTitle" placeholder="Task title"><input class="inp" id="ntDetails" placeholder="Details (optional)" style="margin-top:6px"></td>
           <td><input class="inp" id="ntDate" type="date" value="${todayStr()}"></td><td><input class="inp" id="ntWho" placeholder="Responsible"></td>
           <td><button class="btn btn-primary btn-sm" data-addtask>Add</button></td></tr></tbody></table>
     <div class="sectop"><h2><span class="chev">»</span> Notes</h2></div>
-    <div class="notes">${i.notes.length?[...i.notes].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(n=>`<div class="note ${n.nature}"><div class="nd"></div><div class="nc"><div class="nh"><span class="ntag ${n.nature}">${n.nature}</span><span class="nwhen">${fmt(n.date)}</span></div><div class="ntext">${n.text}</div></div></div>`).join(''):'<div class="empty" style="padding:18px">No notes yet.</div>'}</div>
+    <div class="notes">${i.notes.length?[...i.notes].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(n=>`<div class="note ${n.nature}"><div class="nd"></div><div class="nc"><div class="nh"><span class="ntag ${n.nature}">${n.nature}</span><span class="nwhen">${fmt(n.date)}</span></div><div class="ntext">${n.text} <span data-editnote="${n.id}" style="cursor:pointer;font-size:11px;color:var(--gray)">✎</span> <span data-delnote="${n.id}" style="cursor:pointer;font-size:11px;color:var(--dl)">✕</span></div></div></div>`).join(''):'<div class="empty" style="padding:18px">No notes yet.</div>'}</div>
     <div class="addnote"><select id="nnNature"><option value="note">Note</option><option value="decision">Decision</option><option value="meeting">Meeting</option><option value="risk">Risk</option></select>
       <input class="inp" id="nnText" placeholder="Add a note…"><button class="btn btn-primary" data-addnote>Add</button></div>
     <div class="sectop"><h2><span class="chev">»</span> Activity log</h2></div>
@@ -500,6 +502,31 @@ function renderInitiative(){
   document.querySelector('[data-addtask]').onclick=()=>{const ti=document.getElementById('ntTitle').value.trim();if(!ti)return;i.tasks.push({id:newId(),title:ti,details:document.getElementById('ntDetails').value.trim(),target:document.getElementById('ntDate').value,who:document.getElementById('ntWho').value.trim()||'—',status:'Not Started'});renderAll();};
   document.querySelector('[data-addnote]').onclick=()=>{const tx=document.getElementById('nnText').value.trim();if(!tx)return;i.notes.push({id:newId(),date:todayStr(),nature:document.getElementById('nnNature').value,text:tx});renderAll();};
   document.querySelectorAll('[data-mark]').forEach(e=>e.onclick=()=>{const m=e.dataset.mark;i.manual=(m==='reopen')?null:m;renderAll();});
+  const ei=document.querySelector('[data-editinit]');if(ei)ei.onclick=()=>{
+    const t=prompt('Title:',i.title);if(t)i.title=t.trim();
+    const d=prompt('Description:',i.description||'');i.description=(d||'').trim();
+    const o=prompt('Owner:',i.owner);if(o)i.owner=o.trim();
+    const dl=prompt('Deadline (YYYY-MM-DD):',i.deadline);if(dl&&dl.match(/^\d{4}-\d{2}-\d{2}$/))i.deadline=dl;
+    const pr=prompt('Priority (critical/high/mid/low):',i.priority);if(pr&&['critical','high','mid','low'].includes(pr))i.priority=pr;
+    const tk=prompt('Track (bd/practice/internal):',i.track);if(tk&&['bd','practice','internal'].includes(tk))i.track=tk;
+    renderAll();};
+  const di=document.querySelector('[data-delinit]');if(di)di.onclick=()=>{if(!confirm('Delete this initiative and all its tasks/notes?'))return;
+    p.initiatives.splice(p.initiatives.indexOf(i),1);state.view='agenda';renderAll();};
+  document.querySelectorAll('[data-edittask]').forEach(e=>e.onclick=()=>{const t=i.tasks.find(x=>x.id===e.dataset.edittask);if(!t)return;
+    const ti=prompt('Task title:',t.title);if(ti)t.title=ti.trim();
+    const dt=prompt('Details:',t.details||'');t.details=(dt||'').trim();
+    const w=prompt('Responsible:',t.who);if(w)t.who=w.trim();
+    const td=prompt('Target date (YYYY-MM-DD):',t.target);if(td&&td.match(/^\d{4}-\d{2}-\d{2}$/))t.target=td;
+    const st=prompt('Status (Not Started/On track/Done):',t.status);if(st&&['Not Started','On track','Done'].includes(st))t.status=st;
+    renderAll();});
+  document.querySelectorAll('[data-deltask]').forEach(e=>e.onclick=()=>{if(!confirm('Delete this task?'))return;
+    i.tasks.splice(i.tasks.findIndex(x=>x.id===e.dataset.deltask),1);renderAll();});
+  document.querySelectorAll('[data-editnote]').forEach(e=>e.onclick=()=>{const n=i.notes.find(x=>x.id===e.dataset.editnote);if(!n)return;
+    const tx=prompt('Note text:',n.text);if(tx)n.text=tx.trim();
+    const nat=prompt('Nature (note/decision/meeting/risk):',n.nature);if(nat&&['note','decision','meeting','risk'].includes(nat))n.nature=nat;
+    renderAll();});
+  document.querySelectorAll('[data-delnote]').forEach(e=>e.onclick=()=>{if(!confirm('Delete this note?'))return;
+    i.notes.splice(i.notes.findIndex(x=>x.id===e.dataset.delnote),1);renderAll();});
 }
 function renderInitsList(){
   const p=P();const filter=state.initFilter||'open';const all=p.initiatives;
@@ -564,7 +591,7 @@ function renderConcerns(){
   const cards=[...p.concerns].sort((a,b)=>({high:0,med:1,low:2}[a.sev])-({high:0,med:1,low:2}[b.sev])).map(c=>
     `<div class="ccard" style="border-left-color:${sevColor(c.sev)}"><div class="ctop"><span class="sev sev-${c.sev}">${sevLabel(c.sev)}</span></div>
       <div class="ctitle">${c.title}</div><div class="cmit">${hasMit(c.mitigation)?`<b>Mitigation:</b> ${c.mitigation}`:`<span class="pending">⚠ Pending mitigation plan</span>`}</div>
-      <div class="cmeta">Owner <b>${c.owner}</b></div></div>`).join('');
+      <div class="cmeta">Owner <b>${c.owner}</b> <span data-editconcern="${c.id}" style="cursor:pointer;font-size:11px;color:var(--gray);margin-left:8px">✎ Edit</span> <span data-delconcern="${c.id}" style="cursor:pointer;font-size:11px;color:var(--dl)">✕ Delete</span></div></div>`).join('');
   const form=`<div class="ccard addform"><div class="lbl2">Add a concern or risk</div>
     <select class="inp" id="ccSev"><option value="high">High</option><option value="med">Medium</option><option value="low">Low</option></select>
     <input class="inp" id="ccTitle" placeholder="Concern or risk"><input class="inp" id="ccMit" placeholder="Agreed mitigation plan">
@@ -572,6 +599,14 @@ function renderConcerns(){
   document.getElementById('content').innerHTML=`<div class="sech"><span class="chev">»</span><h2>Concerns &amp; Risks register</h2><div class="line"></div></div><div class="cgrid">${cards}${form}</div>`;
   document.querySelector('[data-addconcern]').onclick=()=>{const t=document.getElementById('ccTitle').value.trim();if(!t)return;
     p.concerns.push({id:newId(),title:t,sev:document.getElementById('ccSev').value,mitigation:document.getElementById('ccMit').value.trim(),owner:document.getElementById('ccOwner').value.trim()||'—'});renderAll();};
+  document.querySelectorAll('[data-editconcern]').forEach(e=>e.onclick=()=>{const c=p.concerns.find(x=>x.id===e.dataset.editconcern);if(!c)return;
+    const ti=prompt('Concern title:',c.title);if(ti)c.title=ti.trim();
+    const sv=prompt('Severity (high/med/low):',c.sev);if(sv&&['high','med','low'].includes(sv))c.sev=sv;
+    const mt=prompt('Mitigation plan:',c.mitigation||'');c.mitigation=(mt||'').trim();
+    const ow=prompt('Owner:',c.owner);if(ow)c.owner=ow.trim();
+    renderAll();});
+  document.querySelectorAll('[data-delconcern]').forEach(e=>e.onclick=()=>{if(!confirm('Delete this concern?'))return;
+    p.concerns.splice(p.concerns.findIndex(x=>x.id===e.dataset.delconcern),1);renderAll();});
 }
 function renderAll(){renderSidebar();renderHeader();
   if(state.view==='dashboard')renderDashboard();else if(state.view==='agenda')renderAgenda();else if(state.view==='initiative')renderInitiative();
