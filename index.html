@@ -341,14 +341,21 @@ const allInits = p => p.initiatives;
 const allTasks = p => p.initiatives.flatMap(i=>i.tasks);
 const isOpen = i => !['Done','Cancelled'].includes(initStatus(i));
 
-/* ---- PERSISTENCE ---- */
-function saveData(){try{localStorage.setItem('traction_sg_partners',JSON.stringify(PARTNERS));localStorage.setItem('traction_sg_state',JSON.stringify({partner:state.partner,view:state.view,initiative:state.initiative}));showSaved();}catch(e){}}
-function loadData(){try{const d=localStorage.getItem('traction_sg_partners');if(d){const p=JSON.parse(d);if(Array.isArray(p)&&p.length>0){PARTNERS=p;}}const s=localStorage.getItem('traction_sg_state');if(s){const ls=JSON.parse(s);if(ls.partner)state.partner=ls.partner;if(ls.view)state.view=ls.view;if(ls.initiative)state.initiative=ls.initiative;}}catch(e){}}
+/* ---- PERSISTENCE (Supabase) ---- */
+const SUPA_URL='https://qkmjecrjczklrswvfdhu.supabase.co/rest/v1';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrbWplY3JqY3prbHJzd3ZmZGh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5ODI3MDksImV4cCI6MjA5OTU1ODcwOX0.cbQgfHz0mP8sUOgPwTUEb0X4a_BDeQ-dfgI5SYupzc4';
+const SUPA_H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'};
+let _saveT=null,_lastH='';
+function dataHash(){return JSON.stringify(PARTNERS).length+'-'+PARTNERS.map(p=>p.initiatives.length+p.concerns.length).join(',');}
+function saveData(){clearTimeout(_saveT);_saveT=setTimeout(async()=>{try{const h=dataHash();if(h===_lastH)return;_lastH=h;await fetch(SUPA_URL+'/traction_data?id=eq.1',{method:'PATCH',headers:SUPA_H,body:JSON.stringify({data:PARTNERS,updated_at:new Date().toISOString()})});showSaved();}catch(e){console.warn('Save failed',e);}},600);}
+async function loadData(){try{const r=await fetch(SUPA_URL+'/traction_data?id=eq.1&select=data',{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0]&&Array.isArray(rows[0].data)&&rows[0].data.length>0){PARTNERS=rows[0].data;_lastH=dataHash();return true;}}catch(e){console.warn('Load failed',e);}return false;}
+async function pollUpdates(){if(document.hidden)return;try{const r=await fetch(SUPA_URL+'/traction_data?id=eq.1&select=data',{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0]&&Array.isArray(rows[0].data)){const h=JSON.stringify(rows[0].data).length+'-'+rows[0].data.map(p=>p.initiatives.length+p.concerns.length).join(',');if(h!==_lastH&&rows[0].data.length>0){PARTNERS=rows[0].data;_lastH=h;renderAll();}}}catch(e){}}
+setInterval(pollUpdates,8000);
 function showSaved(){const el=document.getElementById('saveIndicator');if(el){el.style.opacity='1';setTimeout(()=>el.style.opacity='0',1500);}}
 function exportData(){const b=new Blob([JSON.stringify(PARTNERS,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='traction-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(u);}
 function importData(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(Array.isArray(d)&&d.length>0){PARTNERS=d;saveData();renderAll();}}catch(err){alert('Invalid file');}};r.readAsText(f);};inp.click();}
-function resetData(){if(confirm('Reset all data to defaults? This cannot be undone.')){localStorage.removeItem('traction_sg_partners');localStorage.removeItem('traction_sg_state');location.reload();}}
-loadData();
+function resetData(){if(confirm('Reset all data to defaults? This cannot be undone.')){PARTNERS=generateDefaultPartners();saveData();setTimeout(()=>location.reload(),1000);}}
+loadData().then(loaded=>{if(!loaded){PARTNERS=generateDefaultPartners();saveData();}renderAll();});
 
 function addPartner(){
   const name=prompt('Partner / CXO full name:');if(!name||!name.trim())return;
