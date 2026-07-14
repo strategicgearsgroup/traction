@@ -228,6 +228,7 @@
   </div>
   <div class="plbl">Partners</div>
   <div class="pscroll" id="partnerList"></div>
+  <div style="padding:4px 12px"><div class="addinit" onclick="addPartner()" style="margin:0;border-color:rgba(255,255,255,.15);color:#7fc4dd;background:rgba(255,255,255,.04)">+ Add Partner / CXO</div></div>
   <div class="data-tools">
     <button onclick="exportData()">↓ Export</button>
     <button onclick="importData()">↑ Import</button>
@@ -242,7 +243,11 @@
     <div class="top">
       <div class="av" id="phAv"></div>
       <div><h1 id="phName"></h1><div class="prac" id="phPrac"></div></div>
-      <div class="last">Last engaged<b id="phLast"></b></div>
+      <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="editPartner(state.partner)">✎ Edit</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--dl)" onclick="deletePartner(state.partner)">✕ Remove</button>
+        <div class="last" style="margin-left:12px">Last engaged<b id="phLast"></b></div>
+      </div>
     </div>
     <div class="tabs" id="tabs"></div>
   </div>
@@ -345,6 +350,27 @@ function importData(){const inp=document.createElement('input');inp.type='file';
 function resetData(){if(confirm('Reset all data to defaults? This cannot be undone.')){localStorage.removeItem('traction_sg_partners');localStorage.removeItem('traction_sg_state');location.reload();}}
 loadData();
 
+function addPartner(){
+  const name=prompt('Partner / CXO full name:');if(!name||!name.trim())return;
+  const practice=prompt('Practice area (optional):');
+  const id='p'+Date.now();
+  PARTNERS.push({id,name:name.trim(),initials:initialsOf(name.trim()),practice:(practice||'').trim(),accent:ACCENTS[PARTNERS.length%ACCENTS.length],lastEngaged:todayStr(),initiatives:[],concerns:[]});
+  state.partner=id;state.view='dashboard';renderAll();
+}
+function editPartner(pid){
+  const p=PARTNERS.find(x=>x.id===pid);if(!p)return;
+  const name=prompt('Edit name:',p.name);if(name&&name.trim()){p.name=name.trim();p.initials=initialsOf(p.name);}
+  const practice=prompt('Edit practice area:',p.practice||'');p.practice=(practice||'').trim();
+  renderAll();
+}
+function deletePartner(pid){
+  if(PARTNERS.length<=1){alert('Cannot delete the last partner.');return;}
+  const p=PARTNERS.find(x=>x.id===pid);if(!p)return;
+  if(!confirm('Delete '+p.name+'? This removes all their initiatives, tasks, and concerns.'))return;
+  PARTNERS.splice(PARTNERS.indexOf(p),1);
+  if(state.partner===pid)state.partner=PARTNERS[0].id;
+  state.view='dashboard';renderAll();
+}
 function renderSidebar(){
   document.getElementById('partnerList').innerHTML = PARTNERS.map(p=>{
     const conc=p.concerns.filter(c=>c.sev==='high').length;
